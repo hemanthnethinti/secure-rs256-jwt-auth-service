@@ -50,8 +50,9 @@ REFRESH_RESPONSE=$(curl -sS -X POST "$API_BASE_URL/auth/refresh" \
   -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}")
 
 NEW_ACCESS_TOKEN=$(echo "$REFRESH_RESPONSE" | jq -r '.access_token')
+NEW_REFRESH_TOKEN=$(echo "$REFRESH_RESPONSE" | jq -r '.refresh_token')
 
-if [ "$NEW_ACCESS_TOKEN" = "null" ]; then
+if [ "$NEW_ACCESS_TOKEN" = "null" ] || [ "$NEW_REFRESH_TOKEN" = "null" ]; then
   echo "Refresh failed"
   echo "$REFRESH_RESPONSE" | jq '.'
   exit 1
@@ -65,7 +66,7 @@ echo "$PROFILE_RESPONSE_2" | jq '.'
 echo "[6/6] Logging out (revoking refresh token)"
 LOGOUT_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_BASE_URL/auth/logout" \
   -H 'Content-Type: application/json' \
-  -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}")
+  -d "{\"refresh_token\":\"$NEW_REFRESH_TOKEN\"}")
 
 if [ "$LOGOUT_STATUS" != "204" ]; then
   echo "Logout failed, status: $LOGOUT_STATUS"

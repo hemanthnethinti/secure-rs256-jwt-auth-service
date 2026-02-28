@@ -5,7 +5,7 @@ I built this project as a secure, stateless authentication API using Node.js, Ex
 Main features included:
 
 - JWT access tokens signed with RSA private key (RS256)
-- Refresh token flow using database-backed token revocation
+- Refresh token flow with database-backed revocation and rotation
 - Password hashing with bcrypt (salt rounds: 10)
 - Brute-force protection for login endpoint (5 failed attempts/min/IP)
 - Docker Compose setup with health checks and DB bootstrap SQL
@@ -123,11 +123,11 @@ Rate limit behavior:
 
 ### `POST /auth/refresh`
 
-Exchanges a valid refresh token for a new access token.
+Exchanges a valid refresh token for a new access token and a rotated refresh token.
 
 Responses:
 
-- `200` new access token
+- `200` new access token and new refresh token
 - `401` invalid/expired/revoked refresh token
 
 Refresh token lifetime: 7 days.
@@ -205,7 +205,7 @@ Script flow:
 - Private keys are excluded from git via `.gitignore`
 - JWT uses RS256, signed with private key and verified with public key
 - Access token has short TTL (15 minutes)
-- Refresh tokens are stored in DB and can be revoked
+- Refresh tokens are hashed before DB storage, rotated on refresh, and can be revoked
 - Passwords are salted and hashed using bcrypt
 
 ## Quick Manual Verification

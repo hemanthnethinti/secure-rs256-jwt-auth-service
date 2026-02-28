@@ -52,6 +52,10 @@ function generateRefreshToken() {
   return crypto.randomBytes(64).toString('hex');
 }
 
+function hashRefreshToken(refreshToken) {
+  return crypto.createHash('sha256').update(refreshToken).digest('hex');
+}
+
 function getRefreshTokenExpiryDate() {
   const expiry = new Date();
   expiry.setDate(expiry.getDate() + refreshTokenTtlDays);
@@ -63,5 +67,6 @@ module.exports = {
   verifyAccessToken,
   decodeTokenWithoutVerification,
   generateRefreshToken,
+  hashRefreshToken,
   getRefreshTokenExpiryDate
 };

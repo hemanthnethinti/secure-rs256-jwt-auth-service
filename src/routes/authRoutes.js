@@ -4,6 +4,7 @@ const { query } = require('../db');
 const {
   createAccessToken,
   generateRefreshToken,
+  hashRefreshToken,
   getRefreshTokenExpiryDate
 } = require('../services/tokenService');
 const { bcryptSaltRounds } = require('../config');
@@ -93,10 +94,11 @@ router.post('/login', enforceLoginRateLimit, async (req, res, next) => {
     }
 
     const refreshToken = generateRefreshToken();
+    const refreshTokenHash = hashRefreshToken(refreshToken);
     const refreshExpiresAt = getRefreshTokenExpiryDate();
     await query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)', [
       user.id,
-      refreshToken,
+      refreshTokenHash,
       refreshExpiresAt
     ]);
 
@@ -124,12 +126,14 @@ router.post('/refresh', async (req, res, next) => {
       });
     }
 
+    const incomingRefreshTokenHash = hashRefreshToken(refreshToken);
+
     const result = await query(
       `SELECT rt.id, rt.user_id, rt.expires_at, u.username
        FROM refresh_tokens rt
        JOIN users u ON u.id = rt.user_id
        WHERE rt.token = $1`,
-      [refreshToken]
+      [incomingRefreshTokenHash]
     );
 
     const tokenRecord = result.rows[0];
@@ -149,12 +153,24 @@ router.post('/refresh', async (req, res, next) => {
       });
     }
 
+    const newRefreshToken = generateRefreshToken();
+    const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+    const newRefreshExpiresAt = getRefreshTokenExpiryDate();
+
+    await query('DELETE FROM refresh_tokens WHERE id = $1', [tokenRecord.id]);
+    await query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)', [
+      tokenRecord.user_id,
+      newRefreshTokenHash,
+      newRefreshExpiresAt
+    ]);
+
     const accessToken = createAccessToken({ username: tokenRecord.username, roles: ['user'] });
 
     return res.status(200).json({
       token_type: 'Bearer',
       access_token: accessToken.token,
-      expires_in: accessToken.expiresIn
+      expires_in: accessToken.expiresIn,
+      refresh_token: newRefreshToken
     });
   } catch (error) {
     return next(error);
@@ -169,7 +185,7 @@ router.post('/logout', async (req, res, next) => {
       return res.status(204).send();
     }
 
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+    await query('DELETE FROM refresh_tokens WHERE token = $1', [hashRefreshToken(refreshToken)]);
 
     return res.status(204).send();
   } catch (error) {
